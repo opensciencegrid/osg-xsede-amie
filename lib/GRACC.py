@@ -38,7 +38,7 @@ class GRACC:
         end_ts = start_ts + (24 * 60 * 60)
         end_time = self._epoch_to_date(end_ts)
 
-        log.info("Querying for GRACC data between " + start_time + " and " + end_time)
+        log.info("Querying for GRACC data, section {}, between {} and {}".format(conf_section, start_time, end_time))
 
         wildcardProbeNameq = 'condor:*'
         if self.conf.has_option(conf_section, "probe"):
@@ -163,7 +163,11 @@ class GRACC:
         """
         convert a unix timestamp to date
         """
-        return datetime.utcfromtimestamp(secs).isoformat() + "Z"
+        dt = datetime.utcfromtimestamp(secs)
+        dt.replace(microsecond=0)
+        s = dt.isoformat()
+        s = re.sub("\.[0-9]+$", "", s) + "Z"
+        return s
 
 
 class GRACCState(object):

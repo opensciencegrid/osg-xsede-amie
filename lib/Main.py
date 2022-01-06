@@ -12,24 +12,33 @@ from FreshDesk import FreshDesk
 from GRACC import GRACC, GRACCState
 
 log_config = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "default": {
-            "fmt": "%(levelprefix)s %(message)s",
-            "datefmt": "%Y-%m-%d %H:%M:%S",
+    'version': 1,
+    'disable_existing_loggers': True,
+    'formatters': {
+        'default': {
+            'format': '%(asctime)s [%(levelname)s] %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
 
         },
     },
-    "handlers": {
-        "default": {
-            "formatter": "default",
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stderr",
+    'handlers': {
+        'default': {
+            'formatter': 'default',
+            'class': 'logging.StreamHandler',
+            'stream': 'ext://sys.stderr',
         },
     },
-    "loggers": {
-        "osgxsede": {"handlers": ["default"], "level": "DEBUG"},
+    'loggers': {
+        '': { # root logger
+            'handlers': ['default'],
+            'level': 'WARNING',
+            'propagate': False
+        },
+        'osgxsede': {
+            'handlers': ['default'],
+            'level': 'DEBUG',
+            'propagate': False
+        }
     }
 }
 
@@ -368,11 +377,11 @@ XSEDE global ID: {user_global_id}<br/>
                     state.update_ts(data["max_date_str"])
 
             if self.config.getboolean('main', 'debug'):
-                log.info("Only sleeping a short while as debug mode is on")
-                log.info('================================================================================')
-                time.sleep(30)
+                log.info('Debug mode: only sleeping 1 minute. For regular mode this is 1 hour.')
+                log.info('---------------------------------------------------------------------------------------------------------------------------------')
+                time.sleep(60)
             else:
-                log.info('================================================================================')
+                log.info('---------------------------------------------------------------------------------------------------------------------------------')
                 time.sleep(3600)
 
 
