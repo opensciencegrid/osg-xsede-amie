@@ -108,15 +108,16 @@ class GRACC:
                         data["end_time"] = processors.ReceivedTimeLast.value_as_string
                         # we have to make up a start time, but it can't be too far in the past as an allocation
                         # might not have started yet - 24 hours is probably safe if the values are too large
-                        delta = min(
-                            processors.ReceivedTimeLast.value / 1000 - processors.ReceivedTimeFirst.value / 1000,
-                            24 * 60 * 60)
-                        start_dt = datetime.utcfromtimestamp(processors.ReceivedTimeLast.value / 1000 - delta)
+                        #delta = min(
+                        #    processors.ReceivedTimeLast.value / 1000 - processors.ReceivedTimeFirst.value / 1000,
+                        #    24 * 60 * 60)
+                        #start_dt = datetime.utcfromtimestamp(processors.ReceivedTimeLast.value / 1000 - delta)
+                        start_dt = datetime.utcfromtimestamp(processors.ReceivedTimeLast.value / 1000 - data["wall_duration"])
                         data["start_time"] = start_dt.isoformat()
 
                         # let's clean up the dates
-                        data["start_time"] = re.sub("T", " ", data["start_time"][0:19])
-                        data["end_time"] = re.sub("T", " ", data["end_time"][0:19])
+                        data["start_time"] = data["start_time"][0:19] + "Z"
+                        data["end_time"] = data["end_time"][0:19] + "Z"
 
                         # do we really care about the .000Z part? let's at least be consistent
                         # if len(data["start_time"]) == 19:

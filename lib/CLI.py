@@ -74,9 +74,16 @@ def main():
     # create the parser for the "account-move" command
     parser_amove = subparsers.add_parser('account-move',
                                          help='Move an existing account to a new OSGConnect uid/username')
-    parser_amove.add_argument('--old-uid', required=True, help='Old (currently registered) uid')
+    parser_amove.add_argument('--xsede-person-id', required=True, help='XSEDE global person id')
     parser_amove.add_argument('--connect-username', required=True, help='Target user in OSGConnect')
     parser_amove.set_defaults(func=account_move)
+
+    # create the parser for the "account-park" command
+    parser_apark = subparsers.add_parser('account-park',
+                                         help='Park an old account as non-active')
+    parser_apark.add_argument('--xsede-person-id', required=True, help='XSEDE person id')
+    parser_apark.add_argument('--xsede-username', required=True, help='XSEDE username')
+    parser_apark.set_defaults(func=account_park)
 
     args = parser.parse_args()
     # call the right sub function
@@ -140,12 +147,15 @@ def account_created(args):
     # find the parked packet
     rac = None
     for packet in amie.load_packets('incoming', 'parked'):
-        gid = packet.UserGlobalID
-        p = 'TG-{}'.format(packet.GrantNumber)
-        # do we need to check packet type?
-        if gid == args.global_id and p == args.project:
-            rac = packet
-            break
+        try:
+            gid = packet.UserGlobalID
+            p = 'TG-{}'.format(packet.GrantNumber)
+            # do we need to check packet type?
+            if gid == args.global_id and p == args.project:
+                rac = packet
+                break
+        except Exception as e:
+            pass
 
     if rac is None:
         raise RuntimeError('Unable to find a corresponding rac packet in incoming/parked')
@@ -177,13 +187,34 @@ def account_move(args):
     npi = NotifyPersonIDs(
         originating_site_name="OSG"
     )
-    npi.PersonID = args.old_uid
+    npi.PersonID = args.xsede_person_id
     npi.PrimaryPersonID = user['unix_id']
+    npi.PersonIdList = [user['unix_id']]
+    # remove old ones
+    npi.RemoveResourceList = ['grid1.osg.xsede']
     npi.ResourceLogin = [{
         'Resource': 'grid1.osg.xsede',
         'Login': user['unix_name'],
         'UID': user['unix_id']
     }]
+
+    # send the NPI
+    amie.send_packet(npi)
+
+    log.info("Notification sent to XSEDE database")
+
+
+def account_park(args):
+
+    # construct a NotifyPersonIDs packet.
+    npi = NotifyPersonIDs(
+        originating_site_name="OSG"
+    )
+    npi.PersonID = args.xsede_person_id
+    npi.PrimaryPersonID = args.xsede_username
+    npi.PersonIdList = [args.xsede_username]
+    # remove old ones
+    npi.RemoveResourceList = ['grid1.osg.xsede']
 
     # send the NPI
     amie.send_packet(npi)

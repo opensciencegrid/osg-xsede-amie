@@ -5,9 +5,13 @@ import logging
 import re
 import time
 import pprint
+import uuid
+from datetime import datetime, timedelta
 from logging.config import dictConfig
+from amieclient.usage import ComputeUsageRecord
 
 from AMIE import AMIE
+from AMIE_Usage import AMIE_Usage
 from FreshDesk import FreshDesk
 from GRACC import GRACC, GRACCState
 
@@ -59,13 +63,10 @@ class Main():
         self.config.read('/opt/apps/osg-xsede-amie/etc/osg-xsede-amie.conf')
 
         self.amie = AMIE(self.config)
+        self.amie_usage = AMIE_Usage(self.config)
         self.freshdesk = FreshDesk(self.config)
 
     def request_project_create(self, packet):
-
-        # Eventually, we should be able to automatically process requests for
-        # exiting PIs (packet.PiPersonID in OSGConnect), but we have to wait
-        # for this until we have fully transitioned from xd-login
 
         grant_number = packet.GrantNumber
         record_id = packet.RecordID
@@ -90,35 +91,55 @@ class Main():
         pi_phone_number = packet.PiBusinessPhoneNumber
         pi_nsf_status_code = packet.NsfStatusCode
 
-        subject = f'New XSEDE project: TG-{grant_number}'
-        body = f'''<p>A new project has been received from XSEDE. OSG Facilitators should perform the
-following steps to ensure the required projects and users already exists / have been created:</p>
+        subject = f'OSG/XSEDE - create PI account to activate your allocation TG-{grant_number}'
+        body = f'''<p>Thank you for your interest in using OSG resources via an XSEDE allocation.
+When you are ready to use your OSG allocation, you (the allocation PI) need an OSG-based account
+with the OSG Connect service.</p>
 
-<br/>
-<ol>
-  <li>Search OSGConnect for the PI and project.
-  <li>If the PI does not have an account, use the XSEDE FreshDesk template to ask the PI to request an OSGConnect account.
-  <li>Make sure that the two required projects exists (TG-{grant_number}, and Inst_PILastname)
-</ol>
+<br>
+<p>
+<b>If you already have an OSG Connect user profile:</b><br>
+You can check by trying to ‘Log In’ via the osgconnect.net website using your institutional
+identity. If you are able to view your user Profile and are ready to charge OSG usage against
+your XSEDE allocation, please send an email to support@opensciencegrid.org, to request that your
+user account be associated with the appropriate allocation charge code (e.g. TG-{grant_number}).
+</p>
 
-<br/>
-<p>Once these steps are complete, respond to this ticket and assign to Mats.</p>
+<br>
+<p>
+<b>If you do not yet have an OSG Connect user profile:</b><br>
+Please ‘Sign Up’ for an OSG account at https://osgconnect.net/signup using your institutional
+identity, and copy the below into the Comments field before submitting your Sign Up request.
+</p>
 
-<br/>
+<br>
 <p>
 Project: TG-{grant_number}<br/>
 Title: {project_title}<br/>
-Abstract: {abstract}<br/>
-</p>
-
-<br/>
-<p>
 PI: {pi_first_name} {pi_last_name}<br/>
 Organization: {pi_organization}<br/>
 Email: {pi_email}<br/>
 </p>
+
+<br>
+<p>
+An OSG Research Computing Facilitator will follow up to meet with you and/or your group, to
+activate accounts and provide personalized guidance on using OSG.
+</p>
+
+<br>
+<p>
+<b>Users on your allocation can follow either step, above, after the allocation has been
+activated by an OSG staff member.</b>
+</p>
+
+<br>
+<p>
+Thank you,<br>
+OSG User Facilitation
+</p>
 '''
-        self.freshdesk.open_ticket(subject, body)
+        self.freshdesk.send_email(pi_email, subject, body, tags=['xsede_project'])
         self.amie.save_packet(packet, 'incoming', 'parked')
 
     def data_project_create(self, packet):
@@ -182,30 +203,46 @@ Email: {pi_email}<br/>
                 # unable to find/process the user - fall back to facilitators
                 pass
 
-        subject = f'New XSEDE account: {user_first_name} {user_last_name}'
-        body = f'''<p>A new account request has been received from XSEDE. OSG Facilitators should perform the
-following steps to ensure the required user already exists / have been created:</p>
+        subject = f'OSG/XSEDE - create an account on OSG Connect'
+        body = f'''<p>Thank you for your application for an OSG account via an XSEDE allocation. When you
+are ready to use your OSG allocation, you will need an OSG-based account with the OSG Connect service.
+</p>
 
-<br/>
-<ol>
-  <li>Search OSGConnect for the user.
-  <li>If the user does not have an account, use the XSEDE FreshDesk template to ask the user to request an OSGConnect account.
-  <li>There is no need for creating a project - the user will be automatically assigned later
-</ol>
-
-<br/>
-<p>Once these steps are complete, respond to this ticket and assign to Mats.</p>
-
-<br/>
+<br>
 <p>
-Name: {user_first_name} {user_last_name}<br/>
-Organization: {user_organization}<br/>
-Email: {user_email}<br/>
+<b>If you already have an OSG Connect user profile:</b><br>
+You can double check by trying to ‘Log In’ via the osgconnect.net website using your institutional identity.
+If you are able to view your user Profile without needing to ‘Sign Up’ and are ready to charge OSG usage
+against your XSEDE allocation, please send an email to support@opensciencegrid.org, to request that your
+user account be associated with the appropriate allocation charge code (e.g. {project_id}).
+</p>
+
+<br>
+<p>
+<b>If you do not yet have an OSG Connect user profile:</b><br>
+Please ‘Sign Up’ for an account at https://osgconnect.net/signup using your institutional identity, and
+copy the below into the Comments field before submitting your ‘Sign Up’ request:
+</p>
+
+<br>
+<p>
 XSEDE Project: {project_id}<br/>
 XSEDE global ID: {user_global_id}<br/>
 </p>
+
+<br>
+<p>
+An OSG Research Computing Facilitator will follow up to meet with you and/or your group, to activate
+accounts and provide personalized guidance on using OSG.
+</p>
+
+<br>
+<p>
+Thank you,<br>
+OSG User Facilitation
+</p>
 '''
-        self.freshdesk.open_ticket(subject, body)
+        self.freshdesk.send_email(user_email, subject, body, tags=["xsede_account"])
         self.amie.save_packet(packet, 'incoming', 'parked')
 
     def data_account_create(self, packet):
@@ -374,7 +411,43 @@ XSEDE global ID: {user_global_id}<br/>
                     data = q.query(section, start_time)
                     for item in data["data"]:
                         log.info(pprint.pformat(item))
+                        local_record_id = str(uuid.uuid4())
+                        charge = round(float(item['wall_duration']) / 3600.0, 2)
+                        log.info('Assigned local record id {}, and charge {} SUs'.format(local_record_id, charge))
+    
+                        try:
+                            # construct a ComputeUsageRecord packet
+                            upack = ComputeUsageRecord(
+                                resource = 'grid1.osg.xsede',
+                                username = item['user'],
+                                local_project_id = item['project_name'],
+                                local_record_id = local_record_id,
+                                charge = str(charge),
+                                submit_time = item['start_time'],
+                                start_time = item['start_time'],
+                                end_time = item['end_time'],
+                                node_count = item['nodes']
+                            )
+                            resp = self.amie_usage.send(upack)
+                            for item in resp:
+                                log.info(pprint.pformat(item.as_dict()))
+                        except Exception as e:
+                            log.error(e)
+                            continue
+                    # remember how far we have queried already
                     state.update_ts(data["max_date_str"])
+
+            # check for usage record errors
+            #try:
+            #    log.info('Usage records status for the last 24 hours:')
+            #    end_t = datetime.utcnow()
+            #    start_t = end_t - timedelta(days=1)
+            #    log.info(pprint.pformat(self.amie_usage.status(start_t, end_t)))
+            #    # any errors?
+            #    errors = self.amie_usage.get_failed_records()
+            #    log.info(pprint.pformat(errors))
+            #except Exception as e:
+            #    log.error(e)
 
             if self.config.getboolean('main', 'debug'):
                 log.info('Debug mode: only sleeping 1 minute. For regular mode this is 1 hour.')
