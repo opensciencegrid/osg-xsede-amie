@@ -27,11 +27,7 @@ class GRACC:
         :param conf_section:
         '''
 
-        # only do this months index - small problem when crossing month
-        # boundaries, but the data ignored is minor
-        # example: gracc.osg.raw3-2016.11
-        now = datetime.utcnow()
-        index = 'gracc.osg.raw3-' + now.strftime("%Y.%m")
+        index = 'gracc.osg.raw*'
 
         # figure out end date - query for 24 hours max
         start_ts = self._date_to_epoch(start_time)
