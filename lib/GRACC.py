@@ -36,9 +36,9 @@ class GRACC:
 
         log.info("Querying for GRACC data, section {}, between {} and {}".format(conf_section, start_time, end_time))
 
-        wildcardProbeNameq = 'condor:*'
+        wildcardProbeNameq = 'condor-ap:*'
         if self.conf.has_option(conf_section, "probe"):
-            wildcardProbeNameq = 'condor:' + self.conf.get(conf_section, "probe")
+            wildcardProbeNameq = 'condor-ap:' + self.conf.get(conf_section, "probe")
 
         wildcardProjectName = 'TG-*'
         if self.conf.has_option(conf_section, "project_name"):
